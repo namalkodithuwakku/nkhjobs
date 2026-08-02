@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./portal.css";
+import "./portal-blue.css";
 
 type Role = "seeker" | "hotelier" | "admin";
 type Toast = string | null;
@@ -26,6 +27,7 @@ export default function Portal() {
   const [paymentOpen,setPaymentOpen]=useState(false);
   const [saved,setSaved]=useState<number[]>([]);
   const [reviewed,setReviewed]=useState<number[]>([]);
+  const [accountName,setAccountName]=useState<string | null>(null);
   const notify=(message:string)=>{setToast(message);setTimeout(()=>setToast(null),2600)};
 
   const menus=useMemo(()=>({
@@ -34,19 +36,29 @@ export default function Portal() {
     admin:["Overview","Review Queue","Users","Payments","Platform Settings"]
   })[role],[role]);
 
-  const switchRole=(next:Role)=>{setRole(next);setTab("Overview");setJobStep(1)};
+  useEffect(()=>{
+    fetch("/api/me").then(async response=>{
+      if(response.status===401){window.location.href="/auth";return null}
+      return response.json()
+    }).then(data=>{
+      if(!data)return;
+      if(!data.onboarded){window.location.href="/start";return}
+      const nextRole:Role=data.user.role==="job_seeker"?"seeker":data.user.role;
+      setRole(nextRole);setAccountName(data.user.hotelName||data.user.fullName);
+    }).catch(()=>undefined)
+  },[]);
 
   return <div className="portal-shell">
     <aside className="portal-side">
       <a href="/" className="p-brand"><span>NK</span><div><b>N K Hospitality</b><small>JOBS</small></div></a>
-      <div className="demo-switch"><small>DEMO VIEW</small><select value={role} onChange={e=>switchRole(e.target.value as Role)}><option value="seeker">Job seeker</option><option value="hotelier">Hotelier</option><option value="admin">Administrator</option></select></div>
+      <div className="demo-switch"><small>YOUR ACCOUNT</small><b>{role==="seeker"?"Job seeker":role==="hotelier"?"Hotelier":"Administrator"}</b></div>
       <nav>{menus.map(item=><button key={item} className={tab===item?"active":""} onClick={()=>setTab(item)}><span>{iconFor(item)}</span>{item}{item==="Review Queue"&&<b>8</b>}</button>)}</nav>
       <div className="side-help"><span>✦</span><b>Need a little help?</b><p>Our team can guide you through your profile or job post.</p><button onClick={()=>notify("Support request ready for WhatsApp")}>Chat on WhatsApp</button></div>
-      <div className="side-user"><span>{role==="admin"?"NK":role==="hotelier"?"QB":"AM"}</span><div><b>{role==="admin"?"Namal Kodithuwakku":role==="hotelier"?"Queens Beach Hotel":"Anuki Mendis"}</b><small>{role==="admin"?"Master administrator":role==="hotelier"?"Verified hotelier":"Profile 92% complete"}</small></div><button>⋮</button></div>
+      <div className="side-user"><span>{role==="admin"?"NK":role==="hotelier"?"HT":"JS"}</span><div><b>{accountName||"Loading account…"}</b><small>{role==="admin"?"Master administrator":role==="hotelier"?"Hotelier account":"Job seeker account"}</small></div><a href="/auth/signout" aria-label="Sign out">↗</a></div>
     </aside>
 
     <main className="portal-main">
-      <header className="portal-top"><div><button className="mobile-menu">☰</button><span className="mobile-logo">NK</span></div><div className="top-search">⌕ <input placeholder="Search jobs, candidates or applications" /></div><div className="top-actions"><button aria-label="Notifications">♢<i></i></button><button className="profile-dot">{role==="hotelier"?"QB":role==="admin"?"NK":"AM"}</button></div></header>
+      <header className="portal-top"><div><button className="mobile-menu">☰</button><span className="mobile-logo">NK</span></div><div className="top-search">⌕ <input placeholder="Search jobs, candidates or applications" /></div><div className="top-actions"><button aria-label="Notifications">♢<i></i></button><span className="profile-dot">{role==="hotelier"?"HT":role==="admin"?"NK":"JS"}</span><a className="top-signout" href="/auth/signout" aria-label="Sign out">Sign out</a></div></header>
       <div className="portal-page">
         {tab==="Overview"&&role==="seeker"&&<SeekerOverview setTab={setTab}/>} 
         {tab==="Overview"&&role==="hotelier"&&<HotelOverview setTab={setTab}/>} 
@@ -63,7 +75,7 @@ export default function Portal() {
         {tab==="Platform Settings"&&<SettingsPage notify={notify}/>} 
       </div>
     </main>
-    <nav className="portal-mobile-nav">{menus.slice(0,4).map(item=><button key={item} onClick={()=>setTab(item)} className={tab===item?"active":""}><span>{iconFor(item)}</span><small>{item.replace("AI ","").replace("Candidate ","")}</small></button>)}<button><span>◎</span><small>Profile</small></button></nav>
+    <nav className="portal-mobile-nav">{menus.slice(0,4).map(item=><button key={item} onClick={()=>setTab(item)} className={tab===item?"active":""}><span>{iconFor(item)}</span><small>{item.replace("AI ","").replace("Candidate ","")}</small></button>)}<a className="mobile-signout" href="/auth/signout"><span>↗</span><small>Sign out</small></a></nav>
     {paymentOpen&&<PaymentModal close={()=>setPaymentOpen(false)} notify={notify}/>} 
     {toast&&<div className="toast"><span>✓</span>{toast}</div>}
   </div>
@@ -75,7 +87,9 @@ function PageHead({kicker,title,desc,action}:{kicker:string,title:string,desc:st
 
 function SeekerOverview({setTab}:{setTab:(s:string)=>void}){return <><PageHead kicker="GOOD MORNING, ANUKI" title="Your next opportunity is closer." desc="We found 12 new hospitality roles that suit your profile." action={<button className="primary" onClick={()=>setTab("AI Job Matches")}>View all matches →</button>}/><div className="metric-grid"><Metric n="92%" label="Profile strength" note="Add one reference to reach 100%"/><Metric n="12" label="New AI matches" note="3 are above 90%"/><Metric n="4" label="Active applications" note="2 viewed by employers"/><Metric n="28" label="Profile views" note="Up 18% this week"/></div><div className="portal-two"><section className="panel"><div className="panel-title"><div><h2>Best matches for you</h2><p>Ranked using your experience, skills and preferences.</p></div><button onClick={()=>setTab("AI Job Matches")}>View all</button></div>{seekerJobs.slice(0,3).map((j,i)=><div className="compact-job" key={j.title}><span className="company-icon">{j.company.split(" ").slice(0,2).map(x=>x[0]).join("")}</span><div><b>{j.title}</b><small>{j.company} · {j.place}</small></div><strong>{j.score}%</strong></div>)}</section><section className="panel activity"><div className="panel-title"><div><h2>Application activity</h2><p>Your recent progress</p></div></div><div className="timeline"><i></i><div><b>Application viewed</b><p>Queens Beach Hotel viewed your profile.</p><small>18 minutes ago</small></div><i></i><div><b>New strong match</b><p>Reservations Executive · 89%</p><small>2 hours ago</small></div><i></i><div><b>Application shortlisted</b><p>Ocean Pearl Resort moved you forward.</p><small>Yesterday</small></div></div></section></div></>}
 
-function HotelOverview({setTab}:{setTab:(s:string)=>void}){return <><PageHead kicker="QUEENS BEACH HOTEL" title="Find your next great team member." desc="Your active vacancy has 18 qualified candidates." action={<button className="primary" onClick={()=>setTab("Post a Job")}>＋ Post a job</button>}/><div className="metric-grid"><Metric n="1" label="Active vacancy" note="23 days remaining"/><Metric n="18" label="Qualified candidates" note="6 above 85% match"/><Metric n="11" label="Applications" note="4 new today"/><Metric n="1" label="Free job credit" note="First post benefit"/></div><div className="portal-two wide-left"><section className="panel"><div className="panel-title"><div><h2>Top candidate matches</h2><p>Front Office Executive · AI ranked</p></div><button onClick={()=>setTab("Candidate Matches")}>View all</button></div>{candidates.map(c=><div className="candidate-row" key={c.name}><span className="avatar">{c.initials}</span><div><b>{c.name}</b><small>{c.role} · {c.exp}</small><div>{c.skills.slice(0,2).map(s=><em key={s}>{s}</em>)}</div></div><strong>{c.score}%<small>match</small></strong><button>View</button></div>)}</section><section className="panel"><div className="panel-title"><div><h2>Your vacancy</h2><p>Performance overview</p></div></div><div className="vacancy-card"><span>ACTIVE</span><h3>Front Office Executive</h3><p>Queens Beach Hotel · Tangalle</p><div><b>184<small>views</small></b><b>11<small>applications</small></b><b>18<small>matches</small></b></div><i><span style={{width:"72%"}}></span></i><small>23 days until expiry</small></div></section></div></>}
+function HotelOverview({setTab}:{setTab:(s:string)=>void}){return <><PageHead kicker="QUEENS BEACH HOTEL" title="Your hiring dashboard" desc="Everything you need, in one simple view." action={<button className="primary" onClick={()=>setTab("Post a Job")}>＋ Post a job</button>}/><HotelierJourney setTab={setTab}/><div className="metric-grid"><Metric n="1" label="Active vacancy" note="23 days remaining"/><Metric n="18" label="Qualified candidates" note="6 above 85% match"/><Metric n="11" label="Applications" note="4 new today"/><Metric n="1" label="Free job credit" note="First post benefit"/></div><div className="portal-two wide-left"><section className="panel"><div className="panel-title"><div><h2>Top candidate matches</h2><p>Front Office Executive · AI ranked</p></div><button onClick={()=>setTab("Candidate Matches")}>View all</button></div>{candidates.map(c=><div className="candidate-row" key={c.name}><span className="avatar">{c.initials}</span><div><b>{c.name}</b><small>{c.role} · {c.exp}</small><div>{c.skills.slice(0,2).map(s=><em key={s}>{s}</em>)}</div></div><strong>{c.score}%<small>match</small></strong><button>View</button></div>)}</section><section className="panel"><div className="panel-title"><div><h2>Your vacancy</h2><p>Performance overview</p></div></div><div className="vacancy-card"><span>ACTIVE</span><h3>Front Office Executive</h3><p>Queens Beach Hotel · Tangalle</p><div><b>184<small>views</small></b><b>11<small>applications</small></b><b>18<small>matches</small></b></div><i><span style={{width:"72%"}}></span></i><small>23 days until expiry</small></div></section></div></>}
+
+function HotelierJourney({setTab}:{setTab:(s:string)=>void}){return <section className="hotelier-journey"><div className="journey-head"><div><span>GET STARTED</span><h2>Four simple steps to your first hire</h2></div><b>2 of 4 complete</b></div><div className="journey-steps"><article className="done"><i>✓</i><div><strong>Create hotel profile</strong><small>Hotel details saved</small></div></article><article className="done"><i>✓</i><div><strong>Verify your hotel</strong><small>Approved by N K Hotels</small></div></article><article className="current"><i>3</i><div><strong>Post your first job</strong><small>Your first vacancy is free</small></div><button onClick={()=>setTab("Post a Job")}>Post free →</button></article><article><i>4</i><div><strong>Receive matches</strong><small>Review qualified candidates</small></div></article></div></section>}
 
 function AdminOverview({setTab}:{setTab:(s:string)=>void}){return <><PageHead kicker="ADMIN CONTROL CENTRE" title="Everything important, in one view." desc="Eight items are waiting for human review today." action={<button className="primary" onClick={()=>setTab("Review Queue")}>Open review queue →</button>}/><div className="metric-grid"><Metric n="8" label="Pending reviews" note="3 jobs · 5 CVs"/><Metric n="1,248" label="Job seekers" note="+46 this month"/><Metric n="86" label="Verified hotels" note="12 currently hiring"/><Metric n="LKR 38K" label="August revenue" note="32 paid job posts"/></div><div className="portal-two"><section className="panel"><div className="panel-title"><div><h2>Review queue</h2><p>AI checks completed and ready for you.</p></div><button onClick={()=>setTab("Review Queue")}>Review all</button></div>{["CV · Anuki Mendis","Job · Executive Chef","CV · Dilan Niroshan","Job · Night Auditor"].map((x,i)=><div className="review-mini" key={x}><span className={i%2?"job":"cv"}>{i%2?"JOB":"CV"}</span><div><b>{x.split(" · ")[1]}</b><small>{i%2?"Submitted by Cinnamon Cove":"AI confidence 96% · No critical flags"}</small></div><button>Review</button></div>)}</section><section className="panel"><div className="panel-title"><div><h2>Platform health</h2><p>Last 30 days</p></div></div><div className="health-list"><div><span>Approval rate</span><b>91%</b><i><em style={{width:"91%"}}></em></i></div><div><span>Successful matches</span><b>74%</b><i><em style={{width:"74%"}}></em></i></div><div><span>Profile completion</span><b>82%</b><i><em style={{width:"82%"}}></em></i></div><div><span>Payment verification</span><b>98%</b><i><em style={{width:"98%"}}></em></i></div></div></section></div></>}
 

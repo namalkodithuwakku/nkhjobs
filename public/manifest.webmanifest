@@ -1,0 +1,12 @@
+{
+  "name": "N K Hospitality Jobs",
+  "short_name": "NK Jobs",
+  "description": "Sri Lanka's hospitality jobs and talent matching platform.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#287fc1",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

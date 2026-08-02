@@ -315,6 +315,7 @@ create policy "public approved hotels" on public.hotels for select using(verific
 create policy "hotelier creates hotel" on public.hotels for insert with check(owner_id=auth.uid());
 create policy "members update hotel" on public.hotels for update using(public.is_hotel_member(id) or public.is_admin());
 create policy "members read membership" on public.hotel_members for select using(user_id=auth.uid() or public.is_hotel_member(hotel_id) or public.is_admin());
+create policy "owner creates membership" on public.hotel_members for insert with check(user_id=auth.uid() and exists(select 1 from public.hotels h where h.id=hotel_id and h.owner_id=auth.uid()));
 create policy "candidate reads profile" on public.candidate_profiles for select using(user_id=auth.uid() or public.is_admin() or (review_status='approved' and discoverable));
 create policy "candidate manages profile" on public.candidate_profiles for all using(user_id=auth.uid()) with check(user_id=auth.uid());
 create policy "candidate manages documents" on public.candidate_documents for all using(candidate_id=auth.uid() or public.is_admin()) with check(candidate_id=auth.uid() or public.is_admin());
@@ -358,4 +359,3 @@ create policy "admin reads receipts" on storage.objects for select to authentica
 insert into public.skills(name,category) values
 ('Opera PMS','Hotel systems'),('Cloudbeds','Hotel systems'),('Front office','Operations'),('Guest relations','Operations'),('Reservations','Reservations'),('OTA management','Reservations'),('Revenue management','Commercial'),('Food preparation','Kitchen'),('Food safety','Kitchen'),('Housekeeping','Operations'),('English','Languages'),('Sinhala','Languages'),('Tamil','Languages')
 on conflict(name) do nothing;
-
